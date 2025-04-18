@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 import { useParams } from 'common'
+import ResizableAIWidget from 'components/ui/AIEditor/ResizableAIWidget'
 import { GridFooter } from 'components/ui/GridFooter'
 import { useSqlTitleGenerateMutation } from 'data/ai/sql-title-mutation'
 import { useEntityDefinitionsQuery } from 'data/database/entity-definitions-query'
@@ -28,9 +29,12 @@ import { formatSql } from 'lib/formatSql'
 import { detectOS, uuidv4 } from 'lib/helpers'
 import { useProfile } from 'lib/profile'
 import { wrapWithRoleImpersonation } from 'lib/role-impersonation'
-import { useAppStateSnapshot } from 'state/app-state'
+import { useAiAssistantStateSnapshot } from 'state/ai-assistant-state'
 import { useDatabaseSelectorStateSnapshot } from 'state/database-selector'
-import { isRoleImpersonationEnabled, useGetImpersonatedRole } from 'state/role-impersonation-state'
+import {
+  isRoleImpersonationEnabled,
+  useGetImpersonatedRoleState,
+} from 'state/role-impersonation-state'
 import { getSqlEditorV2StateSnapshot, useSqlEditorV2StateSnapshot } from 'state/sql-editor-v2'
 import {
   Button,
@@ -48,7 +52,6 @@ import {
   cn,
 } from 'ui'
 import { subscriptionHasHipaaAddon } from '../Billing/Subscription/Subscription.utils'
-import ResizableAIWidget from 'components/ui/AIEditor/ResizableAIWidget'
 import { useSqlEditorDiff, useSqlEditorPrompt } from './hooks'
 import { RunQueryWarningModal } from './RunQueryWarningModal'
 import {
@@ -83,9 +86,9 @@ export const SQLEditor = () => {
   const queryClient = useQueryClient()
   const project = useSelectedProject()
   const organization = useSelectedOrganization()
-  const appSnap = useAppStateSnapshot()
+  const aiSnap = useAiAssistantStateSnapshot()
   const snapV2 = useSqlEditorV2StateSnapshot()
-  const getImpersonatedRole = useGetImpersonatedRole()
+  const getImpersonatedRoleState = useGetImpersonatedRoleState()
   const databaseSelectorState = useDatabaseSelectorStateSnapshot()
   const isOptedInToAI = useOrgOptedIntoAi()
   const [selectedSchemas] = useSchemasForAi(project?.ref!)
@@ -289,7 +292,7 @@ export const SQLEditor = () => {
           setLineHighlights([])
         }
 
-        const impersonatedRole = getImpersonatedRole()
+        const impersonatedRoleState = getImpersonatedRoleState()
         const connectionString = databases?.find(
           (db) => db.identifier === databaseSelectorState.selectedDatabaseId
         )?.connectionString
@@ -303,12 +306,9 @@ export const SQLEditor = () => {
         execute({
           projectRef: project.ref,
           connectionString: connectionString,
-          sql: wrapWithRoleImpersonation(formattedSql, {
-            projectRef: project.ref,
-            role: impersonatedRole,
-          }),
+          sql: wrapWithRoleImpersonation(formattedSql, impersonatedRoleState),
           autoLimit: appendAutoLimit ? limit : undefined,
-          isRoleImpersonationEnabled: isRoleImpersonationEnabled(impersonatedRole),
+          isRoleImpersonationEnabled: isRoleImpersonationEnabled(impersonatedRoleState.role),
           contextualInvalidation: true,
           handleError: (error) => {
             throw error
@@ -329,7 +329,7 @@ export const SQLEditor = () => {
       project,
       hasHipaaAddon,
       execute,
-      getImpersonatedRole,
+      getImpersonatedRoleState,
       setAiTitle,
       databaseSelectorState.selectedDatabaseId,
       databases,
@@ -366,7 +366,8 @@ export const SQLEditor = () => {
     try {
       const snippet = snapV2.snippets[id]
       const result = snapV2.results[id]?.[0]
-      appSnap.setAiAssistantPanel({
+      aiSnap.newChat({
+        name: 'Debug SQL snippet',
         open: true,
         sqlSnippets: [
           (snippet.snippet.content?.sql ?? '').replace(sqlAiDisclaimerComment, '').trim(),
