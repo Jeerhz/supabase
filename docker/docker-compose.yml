@@ -420,6 +420,12 @@ services:
       - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
+      # Script to create profiles table
+      - ./volumes/db/init-scripts/100-profiles.sql:/docker-entrypoint-initdb.d/init-scripts/100-profiles.sql:Z
+      # Script to create enums types
+      - ./volumes/db/init-scripts/101-enums.sql:/docker-entrypoint-initdb.d/init-scripts/101-enums.sql:Z
+      # Script to create projects table
+      - ./volumes/db/init-scripts/102-projects.sql:/docker-entrypoint-initdb.d/init-scripts/102-projects.sql:Z
     healthcheck:
       test:
         [
