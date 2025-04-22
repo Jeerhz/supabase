@@ -1,4 +1,13 @@
-CREATE TYPE IF NOT EXISTS public.institution AS ENUM (
+-- 101-enums.sql
+
+-- 1) Drop any existing enum types
+DROP TYPE IF EXISTS public.status;
+DROP TYPE IF EXISTS public.region;
+DROP TYPE IF EXISTS public.sector;
+DROP TYPE IF EXISTS public.institution;
+
+-- 2) Recreate the institution enum
+CREATE TYPE public.institution AS ENUM (
   'World Bank (WB)',
   'Agence Française de Développement (AFD)',
   'The African Development Bank (AfDB)',
@@ -17,7 +26,8 @@ CREATE TYPE IF NOT EXISTS public.institution AS ENUM (
   'United Nations Development Programme (UNDP)'
 );
 
-CREATE TYPE IF NOT EXISTS public.sector AS ENUM (
+-- 3) Recreate the sector enum
+CREATE TYPE public.sector AS ENUM (
   'Energy',
   'Water and Sanitation',
   'Urban Development',
@@ -26,7 +36,8 @@ CREATE TYPE IF NOT EXISTS public.sector AS ENUM (
   'Agriculture'
 );
 
-CREATE TYPE IF NOT EXISTS public.region AS ENUM (
+-- 4) Recreate the region enum
+CREATE TYPE public.region AS ENUM (
   'East Asia and Pacific',
   'Africa ‑ Eastern and Southern Africa',
   'Europe and Central Asia',
@@ -37,7 +48,8 @@ CREATE TYPE IF NOT EXISTS public.region AS ENUM (
   'Other/Regional'
 );
 
-CREATE TYPE IF NOT EXISTS public.status AS ENUM (
+-- 5) Recreate the status enum
+CREATE TYPE public.status AS ENUM (
   'In preparation',
   'Active',
   'Dropped',

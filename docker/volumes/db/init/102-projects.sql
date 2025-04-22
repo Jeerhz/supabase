@@ -1,3 +1,6 @@
+-- 102-projects.sql
+
+-- Create projects table (idempotent)
 CREATE TABLE IF NOT EXISTS public.projects (
   id                UUID                 PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at        TIMESTAMPTZ          NOT NULL DEFAULT now(),

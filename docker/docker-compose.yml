@@ -420,12 +420,6 @@ services:
       - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
-      # # Script to create profiles table
-      # - ./volumes/db/init-scripts/100-profiles.sql:/docker-entrypoint-initdb.d/init-scripts/100-profiles.sql:Z
-      # # Script to create enums types
-      # - ./volumes/db/init-scripts/101-enums.sql:/docker-entrypoint-initdb.d/init-scripts/101-enums.sql:Z
-      # # Script to create projects table
-      # - ./volumes/db/init-scripts/102-projects.sql:/docker-entrypoint-initdb.d/init-scripts/102-projects.sql:Z
     healthcheck:
       test:
         [
@@ -466,20 +460,40 @@ services:
   db-init:
     image: supabase/postgres:15.8.1.060
     depends_on:
-      db:
-        condition: service_healthy
-    entrypoint: >
-      bash -ec "
-        for f in /init/*.sql; do
-          echo \"Applying $f\"; 
-          psql -v ON_ERROR_STOP=1 \
-               --username supabase_admin \
-               --dbname ${POSTGRES_DB} \
-               -f $f
-        done
-      "
+      - db
+
+    # mount your SQL folder exactly where it lives
     volumes:
-      - ./volumes/db/init-scripts:/init:Z
+      - ./volumes/db/init:/init:Z
+
+    # tell psql how to talk to the `db` container
+    environment:
+      PGHOST: db
+      PGPORT: ${POSTGRES_PORT:-5432}
+      PGUSER: supabase_admin
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+
+    entrypoint: >
+      bash -ec '
+        echo "⏳ Waiting for Postgres at $PGHOST:$PGPORT…";
+        until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER"; do
+          sleep 1;
+        done;
+
+        echo "📂 /init contains:"; ls -1 /init || true;
+
+        echo "🔄 Applying /init/100-profiles.sql";
+        psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "/init/100-profiles.sql";
+
+        echo "🔄 Applying /init/101-enums.sql";
+        psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "/init/101-enums.sql";
+
+        echo "🔄 Applying /init/102-projects.sql";
+        psql -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -f "/init/102-projects.sql";
+      '
+
+
     restart: "no"
 
   vector:
