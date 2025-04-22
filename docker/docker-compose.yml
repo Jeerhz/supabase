@@ -420,12 +420,12 @@ services:
       - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
       - db-config:/etc/postgresql-custom
-      # Script to create profiles table
-      - ./volumes/db/init-scripts/100-profiles.sql:/docker-entrypoint-initdb.d/init-scripts/100-profiles.sql:Z
-      # Script to create enums types
-      - ./volumes/db/init-scripts/101-enums.sql:/docker-entrypoint-initdb.d/init-scripts/101-enums.sql:Z
-      # Script to create projects table
-      - ./volumes/db/init-scripts/102-projects.sql:/docker-entrypoint-initdb.d/init-scripts/102-projects.sql:Z
+      # # Script to create profiles table
+      # - ./volumes/db/init-scripts/100-profiles.sql:/docker-entrypoint-initdb.d/init-scripts/100-profiles.sql:Z
+      # # Script to create enums types
+      # - ./volumes/db/init-scripts/101-enums.sql:/docker-entrypoint-initdb.d/init-scripts/101-enums.sql:Z
+      # # Script to create projects table
+      # - ./volumes/db/init-scripts/102-projects.sql:/docker-entrypoint-initdb.d/init-scripts/102-projects.sql:Z
     healthcheck:
       test:
         [
@@ -439,6 +439,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
     depends_on:
       vector:
         condition: service_healthy
@@ -460,6 +461,26 @@ services:
         "-c",
         "log_min_messages=fatal" # prevents Realtime polling queries from appearing in logs
       ]
+  
+  # Custom services to create projects and profiles tables and enums type
+  db-init:
+    image: supabase/postgres:15.8.1.060
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: >
+      bash -ec "
+        for f in /init/*.sql; do
+          echo \"Applying $f\"; 
+          psql -v ON_ERROR_STOP=1 \
+               --username supabase_admin \
+               --dbname ${POSTGRES_DB} \
+               -f $f
+        done
+      "
+    volumes:
+      - ./volumes/db/init-scripts:/init:Z
+    restart: "no"
 
   vector:
     container_name: supabase-vector
