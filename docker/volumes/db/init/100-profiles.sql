@@ -1,4 +1,4 @@
--- 1) Create profiles table if it doesn't exist
+-- 1) Create profiles table if it doesn't exist (now with favorite_project_ids)
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL PRIMARY KEY
     REFERENCES auth.users ON DELETE CASCADE,
@@ -9,8 +9,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   website text,
   email text,
   admin_confirmation boolean DEFAULT false,
+  favorite_project_ids uuid[] DEFAULT '{}'::uuid[],
   CONSTRAINT username_length CHECK (char_length(username) >= 3)
 );
+
+-- If the table already existed without the new column, add it now:
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS favorite_project_ids uuid[] DEFAULT '{}'::uuid[];
 
 -- 2) Enable RLS
 ALTER TABLE IF EXISTS public.profiles
