@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS public.projects (
   commitment_amount NUMERIC,
   approval_date     TIMESTAMPTZ,
   metadata          JSONB,
-  region            public.region
+  region            public.region,
+  tags text[] DEFAULT '{}'::text[],
+
 );
 
 -- 2) Enable RLS

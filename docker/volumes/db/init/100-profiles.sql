@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   email text,
   admin_confirmation boolean DEFAULT false,
   favorite_project_ids uuid[] DEFAULT '{}'::uuid[],
+  is_admin boolean DEFAULT false,
   CONSTRAINT username_length CHECK (char_length(username) >= 3)
 );
 
