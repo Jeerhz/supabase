@@ -1,7 +1,6 @@
 import { common, dirname, relative } from '@std/path/posix'
 import { PermissionAction } from '@supabase/shared-types/out/constants'
 import { AlertCircle, CornerDownLeft, Loader2 } from 'lucide-react'
-import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -16,18 +15,19 @@ import { useEdgeFunctionQuery } from 'data/edge-functions/edge-function-query'
 import { useEdgeFunctionDeployMutation } from 'data/edge-functions/edge-functions-deploy-mutation'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
-import { useOrgOptedIntoAi } from 'hooks/misc/useOrgOptedIntoAi'
+import { useOrgAiOptInLevel } from 'hooks/misc/useOrgOptedIntoAi'
 import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProject } from 'hooks/misc/useSelectedProject'
-import { BASE_PATH, IS_PLATFORM } from 'lib/constants'
+import { useFlag } from 'hooks/ui/useFlag'
+import { BASE_PATH } from 'lib/constants'
 import { LogoLoader } from 'ui'
 
 const CodePage = () => {
-  const router = useRouter()
   const { ref, functionSlug } = useParams()
   const project = useSelectedProject()
-  const isOptedInToAI = useOrgOptedIntoAi()
-  const includeSchemaMetadata = isOptedInToAI || !IS_PLATFORM
+  const { includeSchemaMetadata } = useOrgAiOptInLevel()
+  const useBedrockAssistant = useFlag('useBedrockAssistant')
+
   const { mutate: sendEvent } = useSendEventMutation()
   const org = useSelectedOrganization()
   const [showDeployWarning, setShowDeployWarning] = useState(false)
@@ -47,9 +47,16 @@ const CodePage = () => {
       slug: functionSlug,
     },
     {
+      // [Alaister]: These parameters prevent the function files
+      // from being refetched when the user is editing the code
       retry: false,
-      refetchOnWindowFocus: false,
       retryOnMount: false,
+      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      refetchInterval: false,
+      refetchIntervalInBackground: false,
     }
   )
   const [files, setFiles] = useState<
@@ -214,7 +221,11 @@ const CodePage = () => {
           <FileExplorerAndEditor
             files={files}
             onFilesChange={setFiles}
-            aiEndpoint={`${BASE_PATH}/api/ai/edge-function/complete`}
+            aiEndpoint={
+              useBedrockAssistant
+                ? `${BASE_PATH}/api/ai/edge-function/complete-v2`
+                : `${BASE_PATH}/api/ai/edge-function/complete`
+            }
             aiMetadata={{
               projectRef: project?.ref,
               connectionString: project?.connectionString,
@@ -255,6 +266,7 @@ const CodePage = () => {
         visible={showDeployWarning}
         onCancel={() => setShowDeployWarning(false)}
         onConfirm={handleDeployConfirm}
+        isDeploying={isDeploying}
       />
     </div>
   )

@@ -15,13 +15,13 @@ export const REPORTS_DATEPICKER_HELPERS: ReportsDatetimeHelper[] = [
     text: 'Last 10 minutes',
     calcFrom: () => dayjs().subtract(10, 'minute').toISOString(),
     calcTo: () => dayjs().toISOString(),
-    availableIn: ['team', 'enterprise'],
+    availableIn: ['free', 'pro', 'team', 'enterprise'],
   },
   {
     text: 'Last 30 minutes',
     calcFrom: () => dayjs().subtract(30, 'minute').toISOString(),
     calcTo: () => dayjs().toISOString(),
-    availableIn: ['team', 'enterprise'],
+    availableIn: ['free', 'pro', 'team', 'enterprise'],
   },
   {
     text: 'Last 60 minutes',
@@ -82,13 +82,32 @@ export const generateRegexpWhere = (filters: ReportFilterItem[], prepend = true)
       const normalizedKey = [splitKey[splitKey.length - 2], splitKey[splitKey.length - 1]].join('.')
       const filterKey = filter.key.includes('.') ? normalizedKey : filter.key
 
-      if (filter.compare === 'matches') {
-        return `REGEXP_CONTAINS(${filterKey}, '${filter.value}')`
-      } else if (filter.compare === 'is') {
-        return `${filterKey} = ${filter.value}`
+      // Handle different comparison operators
+      switch (filter.compare) {
+        case 'matches':
+          return `REGEXP_CONTAINS(${filterKey}, '${filter.value}')`
+        case 'is':
+          return `${filterKey} = ${filter.value}`
+        case '!=':
+          return `${filterKey} != ${filter.value}`
+        case '>=':
+          return `${filterKey} >= ${filter.value}`
+        case '<=':
+          return `${filterKey} <= ${filter.value}`
+        case '>':
+          return `${filterKey} > ${filter.value}`
+        case '<':
+          return `${filterKey} < ${filter.value}`
+        default:
+          // Fallback to exact match for unknown operators
+          return `${filterKey} = ${filter.value}`
       }
     })
+    .filter(Boolean) // Remove any null/undefined conditions
     .join(' AND ')
+
+  if (conditions === '') return ''
+
   if (prepend) {
     return 'WHERE ' + conditions
   } else {
@@ -103,6 +122,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       totalRequests: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-total-requests
         select
           cast(timestamp_trunc(t.timestamp, hour) as datetime) as timestamp,
           count(t.id) as count
@@ -120,6 +140,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       topRoutes: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-top-routes
         select
           request.path as path,
           request.method as method,
@@ -142,6 +163,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       errorCounts: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-error-counts
         select
           cast(timestamp_trunc(t.timestamp, hour) as datetime) as timestamp,
           count(t.id) as count
@@ -162,6 +184,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       topErrorRoutes: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-top-error-routes
         select
           request.path as path,
           request.method as method,
@@ -186,6 +209,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       responseSpeed: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-response-speed
         select
           cast(timestamp_trunc(t.timestamp, hour) as datetime) as timestamp,
           avg(response.origin_time) as avg
@@ -205,6 +229,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       topSlowRoutes: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-top-slow-routes
         select
           request.path as path,
           request.method as method,
@@ -228,6 +253,7 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       networkTraffic: {
         queryType: 'logs',
         sql: (filters) => `
+        -- reports-api-network-traffic
         select
           cast(timestamp_trunc(t.timestamp, hour) as datetime) as timestamp,
           coalesce(
@@ -274,8 +300,8 @@ export const PRESET_CONFIG: Record<Presets, PresetConfig> = {
       cacheHitRate: {
         queryType: 'logs',
         // storage report does not perform any filtering
-        sql: (_filters) => `
--- cache-hit-rate
+        sql: (filters) => `
+        -- reports-storage-cache-hit-rate
 SELECT
   timestamp_trunc(timestamp, hour) as timestamp,
   countif( h.cf_cache_status in ('HIT', 'STALE', 'REVALIDATED', 'UPDATING') ) as hit_count,
@@ -286,6 +312,7 @@ from edge_logs f
   cross join unnest(m.response) as res
   cross join unnest(res.headers) as h
 where starts_with(r.path, '/storage/v1/object') and r.method = 'GET'
+  ${generateRegexpWhere(filters, false)}
 group by timestamp
 order by timestamp desc
 `,
@@ -293,8 +320,8 @@ order by timestamp desc
       topCacheMisses: {
         queryType: 'logs',
         // storage report does not perform any filtering
-        sql: (_filters) => `
--- top-cache-misses
+        sql: (filters) => `
+        -- reports-storage-top-cache-misses
 SELECT
   r.path as path,
   r.search as search,
@@ -304,9 +331,10 @@ from edge_logs f
   cross join unnest(m.request) as r
   cross join unnest(m.response) as res
   cross join unnest(res.headers) as h
-where starts_with(r.path, '/storage/v1/object') 
+where starts_with(r.path, '/storage/v1/object')
   and r.method = 'GET'
   and h.cf_cache_status in ('MISS', 'NONE/UNKNOWN', 'EXPIRED', 'BYPASS', 'DYNAMIC')
+  ${generateRegexpWhere(filters, false)} 
 group by path, search
 order by count desc
 limit 12
@@ -320,7 +348,7 @@ limit 12
       mostFrequentlyInvoked: {
         queryType: 'db',
         sql: (_params, where, orderBy, runIndexAdvisor = false) => `
--- Most frequently called queries
+        -- reports-query-performance-most-frequently-invoked
 set search_path to public, extensions;
 
 select
@@ -366,7 +394,7 @@ select
       mostTimeConsuming: {
         queryType: 'db',
         sql: (_, where, orderBy, runIndexAdvisor = false) => `
--- Most time consuming queries
+        -- reports-query-performance-most-time-consuming
 set search_path to public, extensions;
 
 select
@@ -403,7 +431,7 @@ select
       slowestExecutionTime: {
         queryType: 'db',
         sql: (_params, where, orderBy, runIndexAdvisor = false) => `
--- Slowest queries by max execution time
+        -- reports-query-performance-slowest-execution-time
 set search_path to public, extensions;
 
 select
@@ -448,7 +476,7 @@ select
       },
       queryHitRate: {
         queryType: 'db',
-        sql: (_params) => `-- Cache and index hit rate
+        sql: (_params) => `-- reports-query-performance-cache-and-index-hit-rate
 select
     'index hit rate' as name,
     (sum(idx_blks_hit)) / nullif(sum(idx_blks_hit + idx_blks_read),0) as ratio
@@ -466,7 +494,8 @@ select
     queries: {
       largeObjects: {
         queryType: 'db',
-        sql: (_) => `SELECT 
+        sql: (_) => `-- reports-database-large-objects
+SELECT 
         SCHEMA_NAME,
         relname,
         table_size

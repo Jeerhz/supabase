@@ -5,7 +5,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { useParams } from 'common'
-import { useIsTableEditorTabsEnabled } from 'components/interfaces/App/FeaturePreview/FeaturePreviewContext'
 import { useProjectContext } from 'components/layouts/ProjectLayout/ProjectContext'
 import { useDatabasePublicationCreateMutation } from 'data/database-publications/database-publications-create-mutation'
 import { useDatabasePublicationsQuery } from 'data/database-publications/database-publications-query'
@@ -21,11 +20,12 @@ import { tableRowKeys } from 'data/table-rows/keys'
 import { useTableRowCreateMutation } from 'data/table-rows/table-row-create-mutation'
 import { useTableRowUpdateMutation } from 'data/table-rows/table-row-update-mutation'
 import { tableKeys } from 'data/tables/keys'
+import { RetrieveTableResult } from 'data/tables/table-retrieve-query'
 import { getTables } from 'data/tables/tables-query'
 import { useUrlState } from 'hooks/ui/useUrlState'
 import { useGetImpersonatedRoleState } from 'state/role-impersonation-state'
 import { useTableEditorStateSnapshot } from 'state/table-editor'
-import { createTabId, updateTab } from 'state/tabs'
+import { createTabId, useTabsStateSnapshot } from 'state/tabs'
 import type { Dictionary } from 'types'
 import { SonnerProgress } from 'ui'
 import ConfirmationModal from 'ui-patterns/Dialogs/ConfirmationModal'
@@ -58,7 +58,7 @@ export interface SidePanelEditorProps {
 
   // Because the panel is shared between grid editor and database pages
   // Both require different responses upon success of these events
-  onTableCreated?: (table: PostgresTable) => void
+  onTableCreated?: (table: RetrieveTableResult) => void
 }
 
 const SidePanelEditor = ({
@@ -69,7 +69,7 @@ const SidePanelEditor = ({
 }: SidePanelEditorProps) => {
   const { ref } = useParams()
   const snap = useTableEditorStateSnapshot()
-  const isTableEditorTabsEnabled = useIsTableEditorTabsEnabled()
+  const tabsSnap = useTabsStateSnapshot()
   const [_, setParams] = useUrlState({ arrayKeys: ['filter', 'sort'] })
 
   const queryClient = useQueryClient()
@@ -228,7 +228,7 @@ const SidePanelEditor = ({
     resolve: any
   ) => {
     const selectedColumnToEdit = snap.sidePanel?.type === 'column' && snap.sidePanel.column
-    const { columnId, primaryKey, foreignKeyRelations, existingForeignKeyRelations } = configuration
+    const { primaryKey, foreignKeyRelations, existingForeignKeyRelations } = configuration
 
     if (!project || selectedTable === undefined) {
       return console.error('no project or table selected')
@@ -246,7 +246,7 @@ const SidePanelEditor = ({
       : await updateColumn({
           projectRef: project?.ref!,
           connectionString: project?.connectionString,
-          id: columnId as string,
+          originalColumn: selectedColumnToEdit as PostgresColumn,
           payload: payload as UpdateColumnPayload,
           selectedTable,
           primaryKey,
@@ -312,7 +312,7 @@ const SidePanelEditor = ({
     })
   }
 
-  const updateTableRealtime = async (table: PostgresTable, enabled: boolean) => {
+  const updateTableRealtime = async (table: RetrieveTableResult, enabled: boolean) => {
     if (!project) return console.error('Project is required')
     const realtimePublication = publications?.find((pub) => pub.name === 'supabase_realtime')
 
@@ -491,10 +491,10 @@ const SidePanelEditor = ({
             `Table ${table.name} has been updated but there were some errors. Please check these errors separately.`
           )
         } else {
-          if (isTableEditorTabsEnabled && ref && payload.name) {
+          if (ref && payload.name) {
             // [Joshen] Only table entities can be updated via the dashboard
             const tabId = createTabId(ENTITY_TYPE.TABLE, { id: selectedTable.id })
-            updateTab(ref, tabId, { label: payload.name })
+            tabsSnap.updateTab(tabId, { label: payload.name })
           }
           toast.success(`Successfully updated ${table.name}!`, { id: toastId })
         }
@@ -628,7 +628,11 @@ const SidePanelEditor = ({
         saveChanges={saveTable}
         updateEditorDirty={() => setIsEdited(true)}
       />
-      <SchemaEditor visible={snap.sidePanel?.type === 'schema'} closePanel={onClosePanel} />
+      <SchemaEditor
+        visible={snap.sidePanel?.type === 'schema'}
+        onSuccess={onClosePanel}
+        closePanel={onClosePanel}
+      />
       <JsonEditor
         visible={snap.sidePanel?.type === 'json'}
         row={(snap.sidePanel?.type === 'json' && snap.sidePanel.jsonValue.row) || {}}

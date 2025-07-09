@@ -119,7 +119,7 @@ export const GLOBAL_MENU_ITEMS: GlobalMenuItems = [
             level: 'platform',
           },
           {
-            label: 'Security',
+            label: 'Security & Compliance',
             icon: 'security',
             href: '/guides/security',
             level: 'security',
@@ -631,6 +631,7 @@ export const auth = {
           ],
         },
         { name: 'Anonymous Sign-Ins', url: '/guides/auth/auth-anonymous' },
+        { name: 'Web3 (Sign in with Solana)', url: '/guides/auth/auth-web3' },
         { name: 'Mobile Deep Linking', url: '/guides/auth/native-mobile-deep-linking' },
         {
           name: 'Identity Linking',
@@ -662,6 +663,7 @@ export const auth = {
         { name: 'Firebase Auth', url: '/guides/auth/third-party/firebase-auth' },
         { name: 'Auth0', url: '/guides/auth/third-party/auth0' },
         { name: 'AWS Cognito (Amplify)', url: '/guides/auth/third-party/aws-cognito' },
+        { name: 'WorkOS', url: '/guides/auth/third-party/workos' },
       ],
     },
     {
@@ -700,6 +702,10 @@ export const auth = {
               name: 'Password verification hook',
               url: '/guides/auth/auth-hooks/password-verification-hook',
             },
+            {
+              name: 'Before User Created hook',
+              url: '/guides/auth/auth-hooks/before-user-created-hook',
+            },
           ],
         },
         { name: 'Custom SMTP', url: '/guides/auth/auth-smtp' },
@@ -713,6 +719,7 @@ export const auth = {
         { name: 'Rate Limits', url: '/guides/auth/rate-limits' },
         { name: 'Bot Detection (CAPTCHA)', url: '/guides/auth/auth-captcha' },
         { name: 'JWTs', url: '/guides/auth/jwts' },
+        { name: 'JWT Fields Reference', url: '/guides/auth/jwt-fields' },
         { name: 'Row Level Security', url: '/guides/database/postgres/row-level-security' },
         {
           name: 'Column Level Security',
@@ -917,10 +924,6 @@ export const database: NavMenuConstant = {
           url: '/guides/database/postgres/configuration',
         },
         {
-          name: 'Managing database replication',
-          url: '/guides/database/replication',
-        },
-        {
           name: 'Query optimization',
           url: '/guides/database/query-optimization',
         },
@@ -960,6 +963,22 @@ export const database: NavMenuConstant = {
     ormQuickstarts,
     guiQuickstarts,
     {
+      name: 'Database replication',
+      url: undefined,
+      items: [
+        { name: 'Overview', url: '/guides/database/replication' },
+        {
+          name: 'Setting up replication',
+          url: '/guides/database/replication/setting-up-replication',
+        },
+        {
+          name: 'Monitoring replication',
+          url: '/guides/database/replication/monitoring-replication',
+        },
+        { name: 'FAQ', url: '/guides/database/replication/faq' },
+      ],
+    },
+    {
       name: 'Extensions',
       url: undefined,
       items: [
@@ -969,7 +988,7 @@ export const database: NavMenuConstant = {
           url: '/guides/database/extensions/hypopg',
         },
         {
-          name: 'plv8: Javascript Language',
+          name: 'plv8 (deprecated)',
           url: '/guides/database/extensions/plv8',
         },
         {
@@ -985,7 +1004,7 @@ export const database: NavMenuConstant = {
           url: '/guides/database/extensions/pgaudit',
         },
         {
-          name: 'pgjwt: JSON Web Tokens',
+          name: 'pgjwt (deprecated)',
           url: '/guides/database/extensions/pgjwt',
         },
         {
@@ -1057,7 +1076,7 @@ export const database: NavMenuConstant = {
           url: '/guides/database/extensions/plpgsql_check',
         },
         {
-          name: 'timescaledb: Time-series data',
+          name: 'timescaledb (deprecated)',
           url: '/guides/database/extensions/timescaledb',
         },
         {
@@ -2079,6 +2098,19 @@ export const security: NavMenuConstant = {
         { name: 'HIPAA', url: '/guides/security/hipaa-compliance' },
       ],
     },
+    {
+      name: 'Guides',
+      url: undefined,
+      items: [
+        { name: 'Production Checklist', url: '/guides/deployment/going-into-prod' },
+        {
+          name: 'Shared Responsibility Model',
+          url: '/guides/deployment/shared-responsibility-model',
+        },
+        { name: 'Row Level Security', url: '/guides/database/postgres/row-level-security' },
+        { name: 'Hardening the Data API', url: '/guides/database/hardening-data-api' },
+      ],
+    },
   ],
 }
 
@@ -2134,6 +2166,16 @@ export const platform: NavMenuConstant = {
         {
           name: 'Multi-factor Authentication',
           url: '/guides/platform/multi-factor-authentication',
+          items: [
+            {
+              name: 'Enable MFA',
+              url: '/guides/platform/multi-factor-authentication',
+            },
+            {
+              name: 'Require MFA for organization members',
+              url: '/guides/platform/org-mfa-enforcement',
+            },
+          ],
         },
         {
           name: 'Transfer Project',
@@ -2168,6 +2210,7 @@ export const platform: NavMenuConstant = {
         { name: 'Performance Tuning', url: '/guides/platform/performance' },
         { name: 'SSL Enforcement', url: '/guides/platform/ssl-enforcement' },
         { name: 'Default Platform Permissions', url: '/guides/platform/permissions' },
+        { name: 'PrivateLink', url: '/guides/platform/privatelink' },
       ],
     },
     {
