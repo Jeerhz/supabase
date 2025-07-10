@@ -50,3 +50,34 @@ CREATE POLICY "Allow public read access on theme_useful_links" ON theme_useful_l
 CREATE POLICY "Allow authenticated users to manage themes" ON themes FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to manage documents" ON documents FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to manage theme_useful_links" ON theme_useful_links FOR ALL USING (auth.role() = 'authenticated');
+
+
+
+-- Create ifi_news table
+CREATE TABLE IF NOT EXISTS ifi_news (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create indexes for better performance
+CREATE INDEX IF NOT EXISTS idx_ifi_news_created_at ON ifi_news(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ifi_news_title ON ifi_news(title);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE ifi_news ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for public read access
+CREATE POLICY "Allow public read access on ifi_news" ON ifi_news FOR SELECT USING (true);
+
+-- Create policies for authenticated users to manage data (adjust based on your auth requirements)
+CREATE POLICY "Allow authenticated users to manage ifi_news" ON ifi_news FOR ALL USING (auth.role() = 'authenticated');
+
+-- Create storage bucket policy for ifi-news
+INSERT INTO storage.buckets (id, name, public) VALUES ('ifi-news', 'ifi-news', true) ON CONFLICT DO NOTHING;
+
+-- Create storage policies
+CREATE POLICY "Allow public read access on ifi-news bucket" ON storage.objects FOR SELECT USING (bucket_id = 'ifi-news');
+CREATE POLICY "Allow authenticated users to manage ifi-news bucket" ON storage.objects FOR ALL USING (bucket_id = 'ifi-news' AND auth.role() = 'authenticated');
