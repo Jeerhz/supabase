@@ -81,3 +81,78 @@ INSERT INTO storage.buckets (id, name, public) VALUES ('ifi-news', 'ifi-news', t
 -- Create storage policies
 CREATE POLICY "Allow public read access on ifi-news bucket" ON storage.objects FOR SELECT USING (bucket_id = 'ifi-news');
 CREATE POLICY "Allow authenticated users to manage ifi-news bucket" ON storage.objects FOR ALL USING (bucket_id = 'ifi-news' AND auth.role() = 'authenticated');
+
+
+-- Grant all permissions to public for the ifi-news bucket
+-- This allows anyone to SELECT, INSERT, UPDATE, DELETE files in the bucket
+
+-- 1. Allow anyone to view/list files in the ifi-news bucket
+CREATE POLICY "Allow public to view ifi-news files" ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'ifi-news');
+
+-- 2. Allow anyone to upload files to the ifi-news bucket
+CREATE POLICY "Allow public to upload to ifi-news" ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'ifi-news');
+
+-- 3. Allow anyone to update files in the ifi-news bucket
+CREATE POLICY "Allow public to update ifi-news files" ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'ifi-news')
+WITH CHECK (bucket_id = 'ifi-news');
+
+-- 4. Allow anyone to delete files from the ifi-news bucket
+CREATE POLICY "Allow public to delete ifi-news files" ON storage.objects
+FOR DELETE
+TO public
+USING (bucket_id = 'ifi-news');
+
+-- Optional: If you want to allow public access to the bucket itself
+-- (This is usually not needed for file operations)
+CREATE POLICY "Allow public to access ifi-news bucket" ON storage.buckets
+FOR SELECT
+TO public
+USING (id = 'ifi-news');
+
+-- Create storage bucket policy for documents
+INSERT INTO storage.buckets (id, name, public) VALUES ('documents', 'documents', true) ON CONFLICT DO NOTHING;
+
+-- Grant all permissions to public for the documents bucket
+-- This allows anyone to SELECT, INSERT, UPDATE, DELETE files in the bucket
+
+-- 1. Allow anyone to view/list files in the documents bucket
+CREATE POLICY "Allow public to view documents files" ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'documents');
+
+-- 2. Allow anyone to upload files to the documents bucket
+CREATE POLICY "Allow public to upload to documents" ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'documents');
+
+-- 3. Allow anyone to update files in the documents bucket
+CREATE POLICY "Allow public to update documents files" ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'documents')
+WITH CHECK (bucket_id = 'documents');
+
+-- 4. Allow anyone to delete files from the documents bucket
+CREATE POLICY "Allow public to delete documents files" ON storage.objects
+FOR DELETE
+TO public
+USING (bucket_id = 'documents');
+
+-- Optional: If you want to allow public access to the bucket itself
+-- (This is usually not needed for file operations)
+CREATE POLICY "Allow public to access documents bucket" ON storage.buckets
+FOR SELECT
+TO public
+USING (id = 'documents');
+
