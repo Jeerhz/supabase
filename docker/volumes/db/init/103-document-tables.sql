@@ -18,6 +18,18 @@ CREATE TABLE IF NOT EXISTS documents (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+
+-- Create washington documents table
+CREATE TABLE IF NOT EXISTS washington_documents (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  theme_id UUID NOT NULL REFERENCES themes(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create theme_useful_links table
 CREATE TABLE IF NOT EXISTS theme_useful_links (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -34,23 +46,26 @@ CREATE INDEX IF NOT EXISTS idx_documents_theme_id ON documents(theme_id);
 CREATE INDEX IF NOT EXISTS idx_theme_useful_links_theme_id ON theme_useful_links(theme_id);
 CREATE INDEX IF NOT EXISTS idx_themes_created_at ON themes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_washington_documents_created_at ON washington_documents(created_at DESC);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE themes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE washington_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE theme_useful_links ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for public read access (adjust based on your auth requirements)
 CREATE POLICY "Allow public read access on themes" ON themes FOR SELECT USING (true);
 CREATE POLICY "Allow public read access on documents" ON documents FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on washington_documents" ON washington_documents FOR SELECT USING (true);
 CREATE POLICY "Allow public read access on theme_useful_links" ON theme_useful_links FOR SELECT USING (true);
 
 -- Create policies for authenticated users to manage data (adjust based on your auth requirements)
 -- You might want to restrict this to admin users only
 CREATE POLICY "Allow authenticated users to manage themes" ON themes FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to manage documents" ON documents FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow authenticated users to manage washington_documents" ON washington_documents FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Allow authenticated users to manage theme_useful_links" ON theme_useful_links FOR ALL USING (auth.role() = 'authenticated');
-
 
 
 -- Create ifi_news table
@@ -155,4 +170,43 @@ CREATE POLICY "Allow public to access documents bucket" ON storage.buckets
 FOR SELECT
 TO public
 USING (id = 'documents');
+
+
+-- Create storage bucket policy for washington-documents
+INSERT INTO storage.buckets (id, name, public) VALUES ('washington-documents', 'washington-documents', true) ON CONFLICT DO NOTHING;
+
+-- Grant all permissions to public for the washington-documents bucket
+-- This allows anyone to SELECT, INSERT, UPDATE, DELETE files in the bucket
+
+-- 1. Allow anyone to view/list files in the washington-documents bucket
+CREATE POLICY "Allow public to view washington-documents files" ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'washington-documents');
+
+-- 2. Allow anyone to upload files to the washington-documents bucket
+CREATE POLICY "Allow public to upload to washington-documents" ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'washington-documents');
+
+-- 3. Allow anyone to update files in the washington-documents bucket
+CREATE POLICY "Allow public to update washington-documents files" ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'washington-documents')
+WITH CHECK (bucket_id = 'washington-documents');
+
+-- 4. Allow anyone to delete files from the washington-documents bucket
+CREATE POLICY "Allow public to delete washington-documents files" ON storage.objects
+FOR DELETE
+TO public
+USING (bucket_id = 'washington-documents');
+
+-- Optional: If you want to allow public access to the bucket itself
+-- (This is usually not needed for file operations)
+CREATE POLICY "Allow public to access washington-documents bucket" ON storage.buckets
+FOR SELECT
+TO public
+USING (id = 'washington-documents');
 
