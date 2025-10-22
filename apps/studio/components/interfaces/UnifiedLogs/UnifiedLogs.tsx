@@ -16,7 +16,7 @@ import {
 import { useQueryStates } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
 
-import { useParams } from 'common'
+import { useDebounce, useParams } from 'common'
 import { arrSome, inDateRange } from 'components/ui/DataTable/DataTable.utils'
 import { DataTableFilterCommand } from 'components/ui/DataTable/DataTableFilters/DataTableFilterCommand'
 import { DataTableHeaderLayout } from 'components/ui/DataTable/DataTableHeaderLayout'
@@ -41,14 +41,31 @@ import {
   Separator,
 } from 'ui'
 import { RefreshButton } from '../../ui/DataTable/RefreshButton'
-import { UNIFIED_LOGS_COLUMNS } from './components/Columns'
+import { generateDynamicColumns, UNIFIED_LOGS_COLUMNS } from './components/Columns'
+import { DownloadLogsButton } from './components/DownloadLogsButton'
 import { LogsListPanel } from './components/LogsListPanel'
+import { TooltipLabel } from './components/TooltipLabel'
 import { ServiceFlowPanel } from './ServiceFlowPanel'
-import { CHART_CONFIG, SEARCH_PARAMS_PARSER } from './UnifiedLogs.constants'
+import { SEARCH_PARAMS_PARSER } from './UnifiedLogs.constants'
 import { filterFields as defaultFilterFields } from './UnifiedLogs.fields'
 import { useLiveMode, useResetFocus } from './UnifiedLogs.hooks'
 import { QuerySearchParamsType } from './UnifiedLogs.types'
 import { getFacetedUniqueValues, getLevelRowClassName } from './UnifiedLogs.utils'
+
+export const CHART_CONFIG = {
+  success: {
+    label: <TooltipLabel level="success" />,
+    color: 'hsl(var(--foreground-muted))',
+  },
+  warning: {
+    label: <TooltipLabel level="warning" />,
+    color: 'hsl(var(--warning-default))',
+  },
+  error: {
+    label: <TooltipLabel level="error" />,
+    color: 'hsl(var(--destructive-default))',
+  },
+} satisfies ChartConfig
 
 export const UnifiedLogs = () => {
   useResetFocus()
@@ -69,8 +86,6 @@ export const UnifiedLogs = () => {
   const [sorting, setSorting] = useState<SortingState>(defaultColumnSorting)
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(defaultColumnFilters)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(defaultRowSelection)
-
-  const [showBottomLogsPanel, setShowBottomLogsPanelState] = useState(false)
 
   const [columnVisibility, setColumnVisibility] = useLocalStorageQuery<VisibilityState>(
     'data-table-visibility',
@@ -101,6 +116,8 @@ export const UnifiedLogs = () => {
     data: unifiedLogsData,
     isLoading,
     isFetching,
+    isFetchingNextPage,
+    isFetchingPreviousPage,
     hasNextPage,
     refetch: refetchLogs,
     fetchNextPage,
@@ -131,6 +148,9 @@ export const UnifiedLogs = () => {
   }
 
   const isRefetchingData = isFetching || isFetchingCounts || isFetchingCharts
+
+  // Only fade when filtering (not when loading more data or live mode)
+  const isFetchingButNotPaginating = isFetching && !isFetchingNextPage && !isFetchingPreviousPage
 
   const rawFlatData = useMemo(() => {
     return unifiedLogsData?.pages?.flatMap((page) => page.data ?? []) ?? []
@@ -166,13 +186,18 @@ export const UnifiedLogs = () => {
     return cn(levelClassName, isPast ? 'opacity-50' : 'opacity-100', 'h-[30px]')
   }
 
+  // Generate dynamic columns based on current data
+  const { columns: dynamicColumns, columnVisibility: dynamicColumnVisibility } = useMemo(() => {
+    return generateDynamicColumns(flatData)
+  }, [flatData])
+
   const table: Table<any> = useReactTable({
     data: flatData,
-    columns: UNIFIED_LOGS_COLUMNS,
+    columns: dynamicColumns,
     state: {
       columnFilters,
       sorting,
-      columnVisibility,
+      columnVisibility: { ...columnVisibility, ...dynamicColumnVisibility },
       rowSelection,
       columnOrder,
     },
@@ -202,7 +227,11 @@ export const UnifiedLogs = () => {
   }, [isLoading, isFetching, flatData.length, table, selectedRowKey])
 
   // REMINDER: this is currently needed for the cmdk search
+  // [Joshen] This is where facets are getting dynamically loaded
   // TODO: auto search via API when the user changes the filter instead of hardcoded
+
+  // Will need to refactor this bit
+  // - Each facet just handles its own state, rather than getting passed down like this
   const filterFields = useMemo(() => {
     return defaultFilterFields.map((field) => {
       const facetsField = facets?.[field.value]
@@ -232,7 +261,8 @@ export const UnifiedLogs = () => {
     })
   }, [facets])
 
-  useEffect(() => {
+  // Debounced filter application to avoid too many API calls when user clicks multiple filters quickly
+  const applyFilterSearch = () => {
     const columnFiltersWithNullable = filterFields.map((field) => {
       const filterValue = columnFilters.find((filter) => filter.id === field.value)
       if (!filterValue) return { id: field.value, value: null }
@@ -249,9 +279,13 @@ export const UnifiedLogs = () => {
     )
 
     setSearch(search)
+  }
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnFilters])
+  const debouncedApplyFilterSearch = useDebounce(applyFilterSearch, 1000)
+
+  useEffect(() => {
+    debouncedApplyFilterSearch()
+  }, [columnFilters, debouncedApplyFilterSearch])
 
   useEffect(() => {
     setSearch({ sort: sorting?.[0] || null })
@@ -288,6 +322,7 @@ export const UnifiedLogs = () => {
       rowSelection={rowSelection}
       columnOrder={columnOrder}
       columnVisibility={columnVisibility}
+      searchParameters={searchParameters}
       enableColumnOrdering={true}
       isFetching={isFetching}
       isLoading={isLoading}
@@ -296,7 +331,7 @@ export const UnifiedLogs = () => {
     >
       <DataTableSideBarLayout topBarHeight={topBarHeight}>
         <ResizablePanelGroup direction="horizontal" autoSaveId="logs-layout">
-          <FilterSideBar />
+          <FilterSideBar dateRangeDisabled={{ after: new Date() }} />
           <ResizableHandle
             withHandle
             // disabled={resizableSidebar ? false : true}
@@ -314,6 +349,7 @@ export const UnifiedLogs = () => {
               />
               <DataTableToolbar
                 renderActions={() => [
+                  <DownloadLogsButton searchParameters={searchParameters} />,
                   <RefreshButton isLoading={isRefetchingData} onRefresh={refetchAllData} />,
                   fetchPreviousPage ? (
                     <LiveButton
@@ -326,7 +362,10 @@ export const UnifiedLogs = () => {
               />
               <TimelineChart
                 data={unifiedLogsChart}
-                className="-mb-2"
+                className={cn(
+                  '-mb-2',
+                  isFetchingCharts && 'opacity-60 transition-opacity duration-150'
+                )}
                 columnId="timestamp"
                 chartConfig={filteredChartConfig}
               />
@@ -341,7 +380,14 @@ export const UnifiedLogs = () => {
                 className="h-full"
               >
                 <ResizablePanelGroup key="main-logs" direction="vertical" className="h-full">
-                  <ResizablePanel defaultSize={100} minSize={30} className="bg">
+                  <ResizablePanel
+                    defaultSize={100}
+                    minSize={30}
+                    className={cn(
+                      'bg',
+                      isFetchingButNotPaginating && 'opacity-60 transition-opacity duration-150'
+                    )}
+                  >
                     <DataTableInfinite
                       columns={UNIFIED_LOGS_COLUMNS}
                       totalRows={totalDBRowCount}

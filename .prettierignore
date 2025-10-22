@@ -8,6 +8,7 @@ apps/**/out
 **/supabase/migrations/*.sql
 apps/www/schema.sql
 apps/www/public/images/*
+apps/www/.generated/*
 apps/docs/**/generated/*
 apps/docs/examples/*
 examples/slack-clone/nextjs-slack-clone/full-schema.sql
@@ -28,3 +29,5 @@ apps/cms/config/api.ts
 apps/cms/src/app/*
 apps/cms/src/migrations/*
 apps/cms/src/payload-types.ts
+# ignore because of <br/><br/>
+apps/www/_blog/2025-07-14-supabase-ui-platform-kit.mdx

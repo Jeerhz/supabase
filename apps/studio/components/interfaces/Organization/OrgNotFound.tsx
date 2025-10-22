@@ -15,19 +15,21 @@ export const OrgNotFound = ({ slug }: { slug?: string }) => {
 
   return (
     <>
-      <Admonition type="danger">
-        The selected organization does not exist or you don't have permission to access it.{' '}
-        {slug ? (
-          <>
-            Contact the owner or administrator to create a new project in the <code>{slug}</code>{' '}
-            organization.
-          </>
-        ) : (
-          <>Contact the owner or administrator to create a new project.</>
-        )}
-      </Admonition>
+      {slug !== '_' && (
+        <Admonition type="danger">
+          The selected organization does not exist or you don't have permission to access it.{' '}
+          {slug ? (
+            <>
+              Contact the owner or administrator to create a new project in the <code>{slug}</code>{' '}
+              organization.
+            </>
+          ) : (
+            <>Contact the owner or administrator to create a new project.</>
+          )}
+        </Admonition>
+      )}
 
-      <h3 className="text-sm">Select an organization to create your new project from</h3>
+      <h3 className="text-sm">Select an organization to create your new project in</h3>
 
       <div className="grid gap-2 grid-cols-2">
         {isOrganizationsLoading && (

@@ -10,6 +10,7 @@ export type WrapperMeta = {
   server: Server
   docsUrl: string
   minimumExtensionVersion?: string
+  customComponent?: boolean
   // If true, the wrapper can target a schema which will be populated with tables specified by the wrapper..
   canTargetSchema?: boolean
   sourceSchemaOption?: ServerOption

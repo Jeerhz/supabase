@@ -1,7 +1,16 @@
 import { noop } from 'lodash'
-import { PropsWithChildren, createContext, useContext, useEffect, useState } from 'react'
+import { useQueryState } from 'nuqs'
+import {
+  PropsWithChildren,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 
-import { FeatureFlagContext, LOCAL_STORAGE_KEYS } from 'common'
+import { FeatureFlagContext, LOCAL_STORAGE_KEYS, useFlag } from 'common'
 import { EMPTY_OBJ } from 'lib/void'
 import { FEATURE_PREVIEWS } from './FeaturePreview.constants'
 
@@ -78,4 +87,125 @@ export const useIsColumnLevelPrivilegesEnabled = () => {
 export const useIsInlineEditorEnabled = () => {
   const { flags } = useFeaturePreviewContext()
   return flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_INLINE_EDITOR]
+}
+
+export const useUnifiedLogsPreview = () => {
+  const { flags, onUpdateFlag } = useFeaturePreviewContext()
+
+  const isEnabled = flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_UNIFIED_LOGS]
+
+  const enable = () => onUpdateFlag(LOCAL_STORAGE_KEYS.UI_PREVIEW_UNIFIED_LOGS, true)
+  const disable = () => onUpdateFlag(LOCAL_STORAGE_KEYS.UI_PREVIEW_UNIFIED_LOGS, false)
+
+  return { isEnabled, enable, disable }
+}
+
+export const useIsBranching2Enabled = () => {
+  const { flags } = useFeaturePreviewContext()
+  return flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_BRANCHING_2_0]
+}
+
+export const useIsAdvisorRulesEnabled = () => {
+  const { flags } = useFeaturePreviewContext()
+  return flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_ADVISOR_RULES]
+}
+
+export const useIsNewStorageUIEnabled = () => {
+  const { flags } = useFeaturePreviewContext()
+  return flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_NEW_STORAGE_UI]
+}
+
+export const useIsSecurityNotificationsEnabled = () => {
+  const { flags } = useFeaturePreviewContext()
+  return flags[LOCAL_STORAGE_KEYS.UI_PREVIEW_SECURITY_NOTIFICATIONS]
+}
+
+export const useFeaturePreviewModal = () => {
+  const [featurePreviewModal, setFeaturePreviewModal] = useQueryState('featurePreviewModal')
+
+  const gitlessBranchingEnabled = useFlag('gitlessBranching')
+  const advisorRulesEnabled = useFlag('advisorRules')
+  const isUnifiedLogsPreviewAvailable = useFlag('unifiedLogs')
+  const isNewStorageUIAvailable = useFlag('storageAnalyticsVector')
+  const isSecurityNotificationsAvailable = useFlag('securityNotifications')
+
+  const selectedFeatureKeyFromQuery = featurePreviewModal?.trim() ?? null
+  const showFeaturePreviewModal = selectedFeatureKeyFromQuery !== null
+
+  // [Joshen] Use this if we want to feature flag previews
+  const isFeaturePreviewReleasedToPublic = useCallback(
+    (feature: (typeof FEATURE_PREVIEWS)[number]) => {
+      switch (feature.key) {
+        case 'supabase-ui-branching-2-0':
+          return gitlessBranchingEnabled
+        case 'supabase-ui-advisor-rules':
+          return advisorRulesEnabled
+        case 'supabase-ui-preview-unified-logs':
+          return isUnifiedLogsPreviewAvailable
+        case 'new-storage-ui':
+          return isNewStorageUIAvailable
+        case 'security-notifications':
+          return isSecurityNotificationsAvailable
+        default:
+          return true
+      }
+    },
+    [
+      gitlessBranchingEnabled,
+      advisorRulesEnabled,
+      isUnifiedLogsPreviewAvailable,
+      isNewStorageUIAvailable,
+      isSecurityNotificationsAvailable,
+    ]
+  )
+
+  const selectedFeatureKey = (
+    !selectedFeatureKeyFromQuery
+      ? FEATURE_PREVIEWS.filter((feature) => isFeaturePreviewReleasedToPublic(feature))[0].key
+      : selectedFeatureKeyFromQuery
+  ) as (typeof FEATURE_PREVIEWS)[number]['key']
+
+  const selectFeaturePreview = useCallback(
+    (featureKey: (typeof FEATURE_PREVIEWS)[number]['key']) => {
+      setFeaturePreviewModal(featureKey)
+    },
+    [setFeaturePreviewModal]
+  )
+
+  const openFeaturePreviewModal = useCallback(() => {
+    selectFeaturePreview(selectedFeatureKey)
+  }, [selectFeaturePreview, selectedFeatureKey])
+
+  const closeFeaturePreviewModal = useCallback(() => {
+    setFeaturePreviewModal(null)
+  }, [setFeaturePreviewModal])
+
+  const toggleFeaturePreviewModal = useCallback(() => {
+    if (showFeaturePreviewModal) {
+      closeFeaturePreviewModal()
+    } else {
+      openFeaturePreviewModal()
+    }
+  }, [showFeaturePreviewModal, openFeaturePreviewModal, closeFeaturePreviewModal])
+
+  return useMemo(
+    () => ({
+      showFeaturePreviewModal,
+      selectedFeatureKey,
+      selectFeaturePreview,
+      openFeaturePreviewModal,
+      closeFeaturePreviewModal,
+      toggleFeaturePreviewModal,
+      isFeaturePreviewReleasedToPublic,
+    }),
+    [
+      showFeaturePreviewModal,
+      selectedFeatureKey,
+      selectFeaturePreview,
+      openFeaturePreviewModal,
+      closeFeaturePreviewModal,
+      toggleFeaturePreviewModal,
+      isFeaturePreviewReleasedToPublic,
+    ]
+  )
 }
