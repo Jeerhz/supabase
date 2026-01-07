@@ -3,10 +3,11 @@ import type { SubmitHandler, UseFormReturn } from 'react-hook-form'
 // End of third-party imports
 
 import { SupportCategories } from '@supabase/shared-types/out/constants'
-import { useFlag } from 'common'
+import { useConstant, useFlag } from 'common'
 import { CLIENT_LIBRARIES } from 'common/constants'
 import { getProjectAuthConfig } from 'data/auth/auth-config-query'
 import { useSendSupportTicketMutation } from 'data/feedback/support-ticket-send'
+import { type OrganizationPlanID } from 'data/organizations/organization-query'
 import { useOrganizationsQuery } from 'data/organizations/organizations-query'
 import { useGenerateAttachmentURLsMutation } from 'data/support/generate-attachment-urls-mutation'
 import { useDeploymentCommitQuery } from 'data/utils/deployment-commit-query'
@@ -35,14 +36,24 @@ import {
   NO_ORG_MARKER,
   NO_PROJECT_MARKER,
 } from './SupportForm.utils'
-import { DASHBOARD_LOG_CATEGORIES, uploadDashboardLog } from './dashboard-logs'
+import {
+  DASHBOARD_LOG_CATEGORIES,
+  getSanitizedBreadcrumbs,
+  uploadDashboardLog,
+} from './dashboard-logs'
 
-const useIsSimplifiedForm = (slug: string) => {
+const useIsSimplifiedForm = (slug: string, subscriptionPlanId?: OrganizationPlanID) => {
   const simplifiedSupportForm = useFlag('simplifiedSupportForm')
+
+  if (subscriptionPlanId === 'platform') {
+    return true
+  }
+
   if (typeof simplifiedSupportForm === 'string') {
     const slugs = (simplifiedSupportForm as string).split(',').map((x) => x.trim())
     return slugs.includes(slug)
   }
+
   return false
 }
 
@@ -58,16 +69,18 @@ export const SupportFormV2 = ({ form, initialError, state, dispatch }: SupportFo
   const respondToEmail = profile?.primary_email ?? 'your email'
 
   const { organizationSlug, projectRef, category, severity, subject, library } = form.watch()
-  const simplifiedSupportForm = useIsSimplifiedForm(organizationSlug)
 
   const selectedOrgSlug = organizationSlug === NO_ORG_MARKER ? null : organizationSlug
   const selectedProjectRef = projectRef === NO_PROJECT_MARKER ? null : projectRef
 
   const { data: organizations } = useOrganizationsQuery()
   const subscriptionPlanId = getOrgSubscriptionPlan(organizations, selectedOrgSlug)
+  const simplifiedSupportForm = useIsSimplifiedForm(organizationSlug, subscriptionPlanId)
 
   const attachmentUpload = useAttachmentUpload()
   const { mutateAsync: uploadDashboardLogFn } = useGenerateAttachmentURLsMutation()
+
+  const sanitizedLogSnapshot = useConstant(getSanitizedBreadcrumbs)
 
   const { data: commit } = useDeploymentCommitQuery({
     staleTime: 1000 * 60 * 10, // 10 minutes
@@ -100,7 +113,11 @@ export const SupportFormV2 = ({ form, initialError, state, dispatch }: SupportFo
     const [attachments, dashboardLogUrl] = await Promise.all([
       attachmentUpload.createAttachments(),
       attachDashboardLogs
-        ? uploadDashboardLog({ userId: profile?.gotrue_id, uploadDashboardLogFn })
+        ? uploadDashboardLog({
+            userId: profile?.gotrue_id,
+            sanitizedLogs: sanitizedLogSnapshot,
+            uploadDashboardLogFn,
+          })
         : undefined,
     ])
 
@@ -212,7 +229,7 @@ export const SupportFormV2 = ({ form, initialError, state, dispatch }: SupportFo
 
         {DASHBOARD_LOG_CATEGORIES.includes(category) && (
           <>
-            <DashboardLogsToggle form={form} />
+            <DashboardLogsToggle form={form} sanitizedLog={sanitizedLogSnapshot} />
             <DialogSectionSeparator />
           </>
         )}
